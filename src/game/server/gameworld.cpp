@@ -4,6 +4,7 @@
 #include "gameworld.h"
 #include "entities/character.h"
 #include "entity.h"
+#include "game/server/gamemodes/DDRace.h"
 #include "gamecontext.h"
 #include "gamecontroller.h"
 #include "player.h"
@@ -194,7 +195,12 @@ void CGameWorld::RemoveEntities()
 
 bool distCompare(std::pair<float, int> a, std::pair<float, int> b)
 {
-	return (a.first < b.first);
+	return a.first < b.first;
+}
+
+bool idCompare(std::pair<float, int> a, std::pair<float, int> b)
+{
+	return a.second < b.second;
 }
 
 void CGameWorld::UpdatePlayerMaps()
@@ -203,54 +209,91 @@ void CGameWorld::UpdatePlayerMaps()
 		return;
 
 	std::pair<float, int> Dist[MAX_CLIENTS];
+
+	int StaticClientCount = 0;
+
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(!Server()->ClientIngame(i) || !GameServer()->m_apPlayers[i])
+		{
+			continue;
+		}
+		if(GameServer()->GetDDRaceTeam(i) != TEAM_FLOCK)
+		{
+			Dist[StaticClientCount++].second = i;
+		}
+	}
+
 	for(int i = 0; i < MAX_CLIENTS; i++)
 	{
 		if(!Server()->ClientIngame(i))
 			continue;
-		if(Server()->GetClientVersion(i) >= VERSION_DDNET_OLD)
+		if(Server()->GetClientVersion(i) >= VERSION_DDNET_UNLIMITED_CLIENTS)
+			continue;
+		CPlayer *pPlayer = GameServer()->m_apPlayers[i];
+		if(!pPlayer)
 			continue;
 		int *pMap = Server()->GetIdMap(i);
+
+		int Team = GameServer()->GetDDRaceTeam(i);
+		int MaxClients = Server()->MaxClients(i) - ((Team == TEAM_FLOCK) ? 2 : 1);
+		int ClientCount = StaticClientCount;
 
 		// compute distances
 		for(int j = 0; j < MAX_CLIENTS; j++)
 		{
-			Dist[j].second = j;
 			if(j == i)
+			{
 				continue;
+			}
 			if(!Server()->ClientIngame(j) || !GameServer()->m_apPlayers[j])
 			{
-				Dist[j].first = 1e10;
+				continue;
+			}
+			if(GameServer()->GetDDRaceTeam(j) != TEAM_FLOCK)
+			{
 				continue;
 			}
 			CCharacter *pChr = GameServer()->m_apPlayers[j]->GetCharacter();
+			Dist[ClientCount].second = j;
 			if(!pChr)
 			{
-				Dist[j].first = 1e9;
+				Dist[ClientCount++].first = 1.0e9f;
 				continue;
 			}
 			if(!pChr->CanSnapCharacter(i))
-				Dist[j].first = 1e8;
-			else
-				Dist[j].first = length_squared(GameServer()->m_apPlayers[i]->m_ViewPos - pChr->m_Pos);
-		}
-
-		// always send the player themselves
-		Dist[i].first = -1;
-
-		std::nth_element(&Dist[0], &Dist[VANILLA_MAX_CLIENTS - 1], &Dist[MAX_CLIENTS], distCompare);
-
-		int Index = 1; // exclude self client id
-		for(int j = 0; j < VANILLA_MAX_CLIENTS - 1; j++)
-		{
-			pMap[j + 1] = -1; // also fill player with empty name to say chat msgs
-			if(Dist[j].second == i || Dist[j].first > 5e9f)
+			{
+				Dist[ClientCount++].first = 1.0e8f;
 				continue;
-			pMap[Index++] = Dist[j].second;
+			}
+			Dist[ClientCount++].first = length_squared(pPlayer->m_ViewPos - pChr->m_Pos);
 		}
 
-		// sort by real client ids, guarantee order on distance changes, O(Nlog(N)) worst case
-		// sort just clients in game always expect first (self client id) and last (fake client id) indexes
-		std::sort(&pMap[1], &pMap[minimum(Index, VANILLA_MAX_CLIENTS - 1)]);
+		bool SendTeamsState = false;
+		int RealClientCount = (ClientCount > MaxClients) ? MaxClients : ClientCount;
+		if(StaticClientCount < ClientCount && RealClientCount < ClientCount)
+		{
+			std::nth_element(&Dist[StaticClientCount], &Dist[RealClientCount], &Dist[ClientCount], distCompare);
+			std::sort(&Dist[StaticClientCount], &Dist[RealClientCount], idCompare);
+		}
+
+		int j = 0;
+		for(; j < RealClientCount; j++)
+		{
+			int OldTeam = pMap[j] == -1 ? TEAM_FLOCK : GameServer()->GetDDRaceTeam(pMap[j]);
+			int NewTeam = GameServer()->GetDDRaceTeam(Dist[j].second);
+			SendTeamsState |= OldTeam != NewTeam;
+			pMap[j] = Dist[j].second;
+		}
+		for(; j < MaxClients; j++)
+			pMap[j] = -1; // also fill player with empty name to say chat msgs
+		if(Team == TEAM_FLOCK)
+		{
+			pMap[MaxClients] = i;
+		}
+
+		if(SendTeamsState)
+			((CGameControllerDDRace *)GameServer()->m_pController)->m_Teams.SendTeamsState(i);
 	}
 }
 

@@ -694,11 +694,12 @@ void CGameContext::SendVoteStatus(int ClientID, int Total, int Yes, int No)
 		return;
 	}
 
-	if(Total > VANILLA_MAX_CLIENTS && m_apPlayers[ClientID] && m_apPlayers[ClientID]->GetClientVersion() <= VERSION_DDRACE)
+	int MaxClients = Server()->MaxClients(ClientID);
+	if(Total > MaxClients && m_apPlayers[ClientID] && m_apPlayers[ClientID]->GetClientVersion() <= VERSION_DDRACE)
 	{
-		Yes = (Yes * VANILLA_MAX_CLIENTS) / (float)Total;
-		No = (No * VANILLA_MAX_CLIENTS) / (float)Total;
-		Total = VANILLA_MAX_CLIENTS;
+		Yes = (Yes * MaxClients) / (float)Total;
+		No = (No * MaxClients) / (float)Total;
+		Total = MaxClients;
 	}
 
 	CNetMsg_Sv_VoteStatus Msg = {0};
@@ -1358,18 +1359,9 @@ void CGameContext::OnClientEnter(int ClientID)
 	}
 
 	{
-		int Empty = -1;
-		for(int i = 0; i < MAX_CLIENTS; i++)
-		{
-			if(!Server()->ClientIngame(i))
-			{
-				Empty = i;
-				break;
-			}
-		}
 		CNetMsg_Sv_Chat Msg;
 		Msg.m_Team = 0;
-		Msg.m_ClientID = Empty;
+		Msg.m_ClientID = -1;
 		Msg.m_pMessage = "Do you know someone who uses a bot? Please report them to the moderators.";
 		m_apPlayers[ClientID]->m_EligibleForFinishCheck = time_get();
 		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL | MSGFLAG_NORECORD, ClientID);

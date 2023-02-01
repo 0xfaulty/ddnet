@@ -49,6 +49,7 @@ public:
 
 	virtual int Port() const = 0;
 	virtual int MaxClients() const = 0;
+	virtual int MaxClients(int ClientID) const = 0;
 	virtual int ClientCount() const = 0;
 	virtual int DistinctClientCount() const = 0;
 	virtual const char *ClientName(int ClientID) const = 0;
@@ -129,7 +130,7 @@ public:
 		{
 			str_format(aBuf, sizeof(aBuf), "%s: %s", ClientName(MsgCopy.m_ClientID), MsgCopy.m_pMessage);
 			MsgCopy.m_pMessage = aBuf;
-			MsgCopy.m_ClientID = VANILLA_MAX_CLIENTS - 1;
+			MsgCopy.m_ClientID = MaxClients(ClientID) - 1;
 		}
 
 		if(IsSixup(ClientID))
@@ -167,15 +168,16 @@ public:
 		return SendMsg(&Packer, Flags, ClientID);
 	}
 
-	bool Translate(int &Target, int Client)
+	bool Translate(int &Target, int ClientID)
 	{
-		if(IsSixup(Client))
+		if(IsSixup(ClientID))
 			return true;
-		if(GetClientVersion(Client) >= VERSION_DDNET_OLD)
+		if(GetClientVersion(ClientID) >= VERSION_DDNET_UNLIMITED_CLIENTS)
 			return true;
-		int *pMap = GetIdMap(Client);
+		int Max = MaxClients(ClientID);
+		int *pMap = GetIdMap(ClientID);
 		bool Found = false;
-		for(int i = 0; i < VANILLA_MAX_CLIENTS; i++)
+		for(int i = 0; i < Max; i++)
 		{
 			if(Target == pMap[i])
 			{
@@ -187,14 +189,15 @@ public:
 		return Found;
 	}
 
-	bool ReverseTranslate(int &Target, int Client)
+	bool ReverseTranslate(int &Target, int ClientID)
 	{
-		if(IsSixup(Client))
+		if(IsSixup(ClientID))
 			return true;
-		if(GetClientVersion(Client) >= VERSION_DDNET_OLD)
+		if(GetClientVersion(ClientID) >= VERSION_DDNET_UNLIMITED_CLIENTS)
 			return true;
-		Target = clamp(Target, 0, VANILLA_MAX_CLIENTS - 1);
-		int *pMap = GetIdMap(Client);
+		int Max = MaxClients(ClientID);
+		Target = clamp(Target, 0, Max - 1);
+		int *pMap = GetIdMap(ClientID);
 		if(pMap[Target] == -1)
 			return false;
 		Target = pMap[Target];

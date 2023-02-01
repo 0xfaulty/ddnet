@@ -214,7 +214,7 @@ public:
 	};
 
 	CClient m_aClients[MAX_CLIENTS];
-	int m_aIdMap[MAX_CLIENTS * VANILLA_MAX_CLIENTS];
+	int m_aIdMap[MAX_CLIENTS * DDNET_OLD_MAX_CLIENTS];
 
 	CSnapshotDelta m_SnapshotDelta;
 	CSnapshotBuilder m_SnapshotBuilder;
@@ -311,6 +311,7 @@ public:
 	bool ClientAuthed(int ClientID) const override;
 	int Port() const override;
 	int MaxClients() const override;
+	int MaxClients(int ClientID) const override;
 	int ClientCount() const override;
 	int DistinctClientCount() const override;
 

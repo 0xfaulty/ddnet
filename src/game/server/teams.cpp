@@ -353,7 +353,7 @@ const char *CGameTeams::SetCharacterTeam(int ClientID, int Team)
 {
 	if(ClientID < 0 || ClientID >= MAX_CLIENTS)
 		return "Invalid client ID";
-	if(Team < 0 || Team >= MAX_CLIENTS + 1)
+	if(Team < 0 || Team >= NUM_TEAMS)
 		return "Invalid team number";
 	if(Team != TEAM_SUPER && m_aTeamState[Team] > TEAMSTATE_OPEN)
 		return "This team started already";
@@ -561,10 +561,23 @@ void CGameTeams::SendTeamsState(int ClientID)
 	CMsgPacker Msg(NETMSGTYPE_SV_TEAMSSTATE);
 	CMsgPacker MsgLegacy(NETMSGTYPE_SV_TEAMSSTATELEGACY);
 
-	for(unsigned i = 0; i < MAX_CLIENTS; i++)
+	unsigned int MaxClients = Server()->MaxClients(ClientID);
+	bool UnlimitedClient = Server()->GetClientVersion(ClientID) >= VERSION_DDNET_UNLIMITED_CLIENTS;
+	for(unsigned i = 0; i < MaxClients; i++)
 	{
-		Msg.AddInt(m_Core.Team(i));
-		MsgLegacy.AddInt(m_Core.Team(i));
+		int Team = TEAM_FLOCK;
+		if(UnlimitedClient)
+		{
+			Team = m_Core.Team(i);
+		}
+		else
+		{
+			int TranslateID = i;
+			if(Server()->ReverseTranslate(TranslateID, ClientID))
+				Team = m_Core.Team(TranslateID);
+		}
+		Msg.AddInt(Team);
+		MsgLegacy.AddInt(Team);
 	}
 
 	Server()->SendMsg(&Msg, MSGFLAG_VITAL, ClientID);

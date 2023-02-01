@@ -675,6 +675,17 @@ int CServer::MaxClients() const
 	return m_RunServer == UNINITIALIZED ? 0 : m_NetServer.MaxClients();
 }
 
+int CServer::MaxClients(int ClientID) const
+{
+	int ClientVersion = GetClientVersion(ClientID);
+	int ServerMaxClients = MaxClients();
+	if(ClientVersion >= VERSION_DDNET_UNLIMITED_CLIENTS)
+		return ServerMaxClients;
+	if(ClientVersion >= VERSION_DDNET_OLD)
+		return minimum((int)DDNET_OLD_MAX_CLIENTS, ServerMaxClients);
+	return minimum((int)VANILLA_MAX_CLIENTS, ServerMaxClients);
+}
+
 int CServer::ClientCount() const
 {
 	int ClientCount = 0;
@@ -3785,7 +3796,7 @@ const char *CServer::GetAnnouncementLine(char const *pFileName)
 
 int *CServer::GetIdMap(int ClientID)
 {
-	return m_aIdMap + VANILLA_MAX_CLIENTS * ClientID;
+	return m_aIdMap + DDNET_OLD_MAX_CLIENTS * ClientID;
 }
 
 bool CServer::SetTimedOut(int ClientID, int OrigID)

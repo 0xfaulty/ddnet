@@ -52,7 +52,7 @@ void CPlayer::Reset()
 	m_WeakHookSpawn = false;
 
 	int *pIdMap = Server()->GetIdMap(m_ClientID);
-	for(int i = 1; i < VANILLA_MAX_CLIENTS; i++)
+	for(int i = 1; i < DDNET_OLD_MAX_CLIENTS; i++)
 	{
 		pIdMap[i] = -1;
 	}
@@ -445,13 +445,13 @@ void CPlayer::Snap(int SnappingClient)
 
 void CPlayer::FakeSnap()
 {
-	if(GetClientVersion() >= VERSION_DDNET_OLD)
+	if(GetClientVersion() >= VERSION_DDNET_UNLIMITED_CLIENTS)
 		return;
 
 	if(Server()->IsSixup(m_ClientID))
 		return;
 
-	int FakeID = VANILLA_MAX_CLIENTS - 1;
+	int FakeID = Server()->MaxClients(m_ClientID) - 1;
 
 	CNetObj_ClientInfo *pClientInfo = static_cast<CNetObj_ClientInfo *>(Server()->SnapNewItem(NETOBJTYPE_CLIENTINFO, FakeID, sizeof(CNetObj_ClientInfo)));
 
@@ -462,7 +462,7 @@ void CPlayer::FakeSnap()
 	StrToInts(&pClientInfo->m_Clan0, 3, "");
 	StrToInts(&pClientInfo->m_Skin0, 6, "default");
 
-	if(m_Paused != PAUSE_PAUSED)
+/*	if(m_Paused != PAUSE_PAUSED)
 		return;
 
 	CNetObj_PlayerInfo *pPlayerInfo = static_cast<CNetObj_PlayerInfo *>(Server()->SnapNewItem(NETOBJTYPE_PLAYERINFO, FakeID, sizeof(CNetObj_PlayerInfo)));
@@ -481,7 +481,7 @@ void CPlayer::FakeSnap()
 
 	pSpectatorInfo->m_SpectatorID = m_SpectatorID;
 	pSpectatorInfo->m_X = m_ViewPos.x;
-	pSpectatorInfo->m_Y = m_ViewPos.y;
+	pSpectatorInfo->m_Y = m_ViewPos.y;*/
 }
 
 void CPlayer::OnDisconnect()
