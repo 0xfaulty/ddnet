@@ -4,6 +4,7 @@
 #define ENGINE_SERVER_SERVER_H
 
 #include <base/hash.h>
+#include <base/tl/threading.h>
 
 #include <engine/console.h>
 #include <engine/server.h>
@@ -324,6 +325,43 @@ public:
 	static int DelClientCallback(int ClientID, const char *pReason, void *pUser);
 
 	static int ClientRejoinCallback(int ClientID, void *pUser);
+
+	struct CPumpNetworkData
+	{
+		CPumpNetworkData(CServer *pServer)
+		{
+			m_aShutdown = false;
+			m_PacketWaiting = false;
+			m_pServer = pServer;
+			m_Lock = lock_create();
+
+			thread_init_and_detach(PumpNetworkThread, (void *)this, "Network thread");
+		}
+
+		bool m_aShutdown;
+		bool m_PacketWaiting;
+		CServer *m_pServer;
+		LOCK m_Lock;
+		CSemaphore m_Semaphore;
+
+		void PumpNetwork(bool PacketWaiting)
+		{
+			lock_wait(m_Lock);
+			m_PacketWaiting = PacketWaiting;
+			m_Semaphore.Signal();
+			lock_unlock(m_Lock);
+		}
+	};
+
+	static void PumpNetworkThread(void *pUser)
+	{
+		CPumpNetworkData *pData = (CPumpNetworkData *)pUser;
+		while(!pData->m_aShutdown)
+		{
+			pData->m_Semaphore.Wait();
+			pData->m_pServer->PumpNetwork(pData->m_PacketWaiting);
+		}
+	}
 
 	void SendRconType(int ClientID, bool UsernameReq);
 	void SendCapabilities(int ClientID);

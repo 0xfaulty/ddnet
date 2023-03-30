@@ -2629,6 +2629,8 @@ int CServer::Run()
 		dbg_msg("server", "+-------------------------+");
 	}
 
+	CPumpNetworkData PumpNetworkData(this);
+
 	// start game
 	{
 		bool NonActive = false;
@@ -2640,7 +2642,7 @@ int CServer::Run()
 		while(m_RunServer < STOPPING)
 		{
 			if(NonActive)
-				PumpNetwork(PacketWaiting);
+				PumpNetworkData.PumpNetwork(PacketWaiting);
 
 			set_new_tick();
 
@@ -2809,7 +2811,7 @@ int CServer::Run()
 			Antibot()->OnEngineTick();
 
 			if(!NonActive)
-				PumpNetwork(PacketWaiting);
+				PumpNetworkData.PumpNetwork(PacketWaiting);
 
 			NonActive = true;
 
@@ -2861,6 +2863,8 @@ int CServer::Run()
 	const char *pDisconnectReason = "Server shutdown";
 	if(m_aShutdownReason[0])
 		pDisconnectReason = m_aShutdownReason;
+
+	PumpNetworkData.m_aShutdown = true;
 
 	if(ErrorShutdown())
 	{
